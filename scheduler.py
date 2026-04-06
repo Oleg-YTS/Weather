@@ -12,6 +12,7 @@ from services.user_data_service import get_all_users
 from services.weather_service import get_weather
 from services.horoscope_service import get_horoscope
 from services.donate_service import create_donate_keyboard
+from services.persona_service import get_donate_message
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -77,10 +78,11 @@ async def send_morning_update(bot: Bot):
                 reply_markup=keyboard,
                 parse_mode="Markdown",
             )
+            persona = user.horoscope_persona
             await bot.send_message(
                 chat_id=user.telegram_id,
-                text="☕ Если бот полезен — поблагодарите звёздочкой!",
-                reply_markup=create_donate_keyboard(),
+                text=get_donate_message(persona),
+                reply_markup=create_donate_keyboard(persona),
             )
             sent += 1
         except Exception as e:

@@ -36,10 +36,12 @@ async def send_donate_invoice(bot: Bot, chat_id: int) -> bool:
         return False
 
 
-def create_donate_keyboard():
+def create_donate_keyboard(persona: str = "normal"):
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    from services.persona_service import get_donate_button_text
+
     return InlineKeyboardMarkup(
         inline_keyboard=[[
-            InlineKeyboardButton(text="❤️ Поблагодарить — 1 ⭐", callback_data="donate_1"),
+            InlineKeyboardButton(text=get_donate_button_text(persona), callback_data="donate_1"),
         ]]
     )

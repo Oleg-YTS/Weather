@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from datetime import date
 from pathlib import Path
 
@@ -40,6 +41,43 @@ if os.getenv("DEEPSEEK_API_KEY"):
 # Кэш
 CACHE_FILE = Path(__file__).parent.parent / "data" / "horoscope_cache.json"
 CACHE_FILE.parent.mkdir(exist_ok=True)
+
+# ─── Исправление опечаток AI ───
+
+TYPO_FIXES = {
+    "хй": "х*й",
+    "хйом": "х*ём",
+    "хйовой": "х*ёвой",
+    "хйов": "х*ёв",
+    "хйовый": "х*ёвый",
+    "хйовая": "х*ёвая",
+    "хйовое": "х*ёвое",
+    "пздец": "п*здец",
+    "пздеца": "п*здеца",
+    "блят": "бл*ть",
+    "ебан": "ёбан",
+    "ебуч": "ёбуч",
+    "нах": "на*уй",
+    "пид": "п*дор",
+    "сука": "с*ка",
+    "бля": "бл*ть",
+    "блядь": "бл*дь",
+    "ппел": "пепел",
+    "блть": "бл*ть",
+}
+
+
+def _fix_ai_typos(text: str) -> str:
+    """Исправить типичные опечатки AI"""
+    for typo, fix in TYPO_FIXES.items():
+        pattern = r'\b' + re.escape(typo) + r'\b'
+        text = re.sub(pattern, fix, text, flags=re.IGNORECASE)
+    return text
+
+
+def escape_md_for_telegram(text: str) -> str:
+    """Экранировать одиночные * внутри слов для Telegram Markdown"""
+    return re.sub(r'(\w)\*(\w)', r'\1\*\2', text)
 
 
 def _load_cache() -> dict:
@@ -113,7 +151,8 @@ def get_horoscope(zodiac: str, persona: str = "normal") -> str:
 
     cached = _get_cached(zodiac, persona)
     if cached:
-        return f"{zodiac} **Гороскоп на сегодня**\n\n📖 {cached}"
+        escaped = escape_md_for_telegram(cached)
+        return f"{zodiac} **Гороскоп на сегодня**\n\n📖 {escaped}"
 
     text = None
     if groq_client:
@@ -122,8 +161,10 @@ def get_horoscope(zodiac: str, persona: str = "normal") -> str:
         text = _generate(deepseek_client, "deepseek-chat", zodiac, english, persona)
 
     if text:
+        text = _fix_ai_typos(text)
         _save_cache_entry(zodiac, text, persona)
-        return f"{zodiac} **Гороскоп на сегодня**\n\n📖 {text}"
+        escaped = escape_md_for_telegram(text)
+        return f"{zodiac} **Гороскоп на сегодня**\n\n📖 {escaped}"
 
     fallback = FALLBACKS.get(zodiac, "День благоприятен для новых начинаний.")
     return f"{zodiac} **Гороскоп на сегодня**\n\n📖 {fallback}"
