@@ -1,5 +1,5 @@
-import logging
 import os
+import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -14,18 +14,14 @@ from services.horoscope_service import get_horoscope
 from services.donate_service import create_donate_keyboard
 
 load_dotenv()
-
 logger = logging.getLogger(__name__)
 
-# Часовой пояс из .env (по умолчанию Europe/Moscow)
 TIMEZONE = os.getenv("TIMEZONE", "Europe/Moscow")
 
 
 def create_scheduler(bot: Bot) -> AsyncIOScheduler:
-    """Создать и настроить планировщик задач"""
     scheduler = AsyncIOScheduler(timezone=TIMEZONE)
 
-    # Задача每天早上 8:00
     scheduler.add_job(
         send_morning_update,
         CronTrigger(hour=8, minute=0, timezone=TIMEZONE),
@@ -33,8 +29,6 @@ def create_scheduler(bot: Bot) -> AsyncIOScheduler:
         id="morning_update",
         replace_existing=True,
     )
-
-    # Дополнительная задача в 12:00 (если утром не дошло)
     scheduler.add_job(
         send_morning_update,
         CronTrigger(hour=12, minute=0, timezone=TIMEZONE),
@@ -43,48 +37,31 @@ def create_scheduler(bot: Bot) -> AsyncIOScheduler:
         replace_existing=True,
     )
 
-    logger.info(f"Планировщик запущен. Рассылка в 8:00 и 12:00 по {TIMEZONE}")
-
-    # Выводим все запланированные задачи
+    logger.info(f"Планировщик: рассылка в 8:00 и 12:00 ({TIMEZONE})")
     for job in scheduler.get_jobs():
-        logger.info(f"Запланирована задача: {job.name} -> {job.trigger}")
+        logger.info(f"  ⏰ {job.name} -> {job.trigger}")
 
     return scheduler
 
 
 async def send_morning_update(bot: Bot):
-    """Отправить утреннюю рассылку всем пользователям"""
     logger.info("Начало утренней рассылки")
-
     users = get_all_users()
-
     if not users:
-        logger.info("Нет пользователей для рассылки")
         return
 
-    sent_count = 0
-    error_count = 0
-
+    sent = 0
     for user in users:
         if not user.has_settings():
-            logger.info(f"Пользователь {user.telegram_id} ещё не настроил данные")
             continue
 
-        # Формируем сообщение
-        message_parts = ["🌅 **Доброе утро!**\n"]
-
+        parts = ["🌅 **Доброе утро!**"]
         for city in user.cities:
-            weather = get_weather(city)
-            if weather:
-                message_parts.append(weather)
-            else:
-                message_parts.append(f"❌ Не удалось получить погоду для {city}")
+            w = get_weather(city)
+            parts.append(w if w else f"❌ Нет данных для {city}")
 
-        horoscope = get_horoscope(user.zodiac_sign, getattr(user, "horoscope_persona", "normal"))
-        if horoscope:
-            message_parts.append(horoscope)
-        else:
-            message_parts.append(f"❌ Не удалось получить гороскоп")
+        h = get_horoscope(user.zodiac_sign, user.horoscope_persona)
+        parts.append(h if h else "❌ Нет гороскопа")
 
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -93,41 +70,20 @@ async def send_morning_update(bot: Bot):
             ]
         )
 
-        full_message = "\n\n".join(message_parts)
+        try:
+            await bot.send_message(
+                chat_id=user.telegram_id,
+                text="\n\n".join(parts),
+                reply_markup=keyboard,
+                parse_mode="Markdown",
+            )
+            await bot.send_message(
+                chat_id=user.telegram_id,
+                text="☕ Если бот полезен — поблагодарите звёздочкой!",
+                reply_markup=create_donate_keyboard(),
+            )
+            sent += 1
+        except Exception as e:
+            logger.error(f"Ошибка отправки {user.telegram_id}: {e}")
 
-        # Повторные попытки при ошибке отправки (до 3 раз)
-        for attempt in range(3):
-            try:
-                # Основное сообщение с погодой и гороскопом
-                main_msg = await bot.send_message(
-                    chat_id=user.telegram_id,
-                    text=full_message,
-                    reply_markup=keyboard,
-                    parse_mode="Markdown",
-                )
-
-                # Кнопка доната
-                await bot.send_message(
-                    chat_id=user.telegram_id,
-                    text="☕ Если бот полезен — поблагодарите звёздочкой!",
-                    reply_markup=create_donate_keyboard(),
-                )
-
-                sent_count += 1
-                logger.info(f"✅ Отправлено пользователю {user.telegram_id}")
-                break
-
-            except Exception as e:
-                error_count += 1
-                wait_time = (attempt + 1) * 5  # 5, 10, 15 секунд
-                logger.warning(
-                    f"Ошибка отправки пользователю {user.telegram_id} (попытка {attempt + 1}/3): {e}. "
-                    f"Ждём {wait_time}с..."
-                )
-                if attempt < 2:
-                    import asyncio
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.error(f"❌ Не удалось отправить пользователю {user.telegram_id} после 3 попыток")
-
-    logger.info(f"Рассылка завершена. Отправлено: {sent_count}, Ошибок: {error_count}")
+    logger.info(f"Рассылка: отправлено {sent}/{len(users)}")

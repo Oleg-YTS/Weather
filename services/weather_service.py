@@ -1,87 +1,66 @@
 import logging
 import os
-from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+API_KEY = os.getenv("OPENWEATHER_API_KEY")
+BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 logger = logging.getLogger(__name__)
 
 
 def get_weather(city: str) -> str | None:
-    """
-    Получить текущую погоду для города.
-    Возвращает отформатированную строку или None при ошибке.
-    """
-    if not OPENWEATHER_API_KEY:
+    if not API_KEY:
         logger.error("OpenWeather API ключ не установлен")
         return None
 
     params = {
         "q": city,
-        "appid": OPENWEATHER_API_KEY,
+        "appid": API_KEY,
         "units": "metric",
         "lang": "ru",
     }
 
     try:
-        response = requests.get(OPENWEATHER_BASE_URL, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        r = requests.get(BASE_URL, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
 
         temp = round(data["main"]["temp"])
-        feels_like = round(data["main"]["feels_like"])
-        description = data["weather"][0]["description"]
+        feels = round(data["main"]["feels_like"])
+        desc = data["weather"][0]["description"].capitalize()
         wind = round(data["wind"]["speed"], 1)
         humidity = data["main"]["humidity"]
         city_name = data["name"]
 
-        # Подбираем эмодзи по описанию погоды
-        weather_emoji = _get_weather_emoji(description)
+        emoji = _emoji(desc)
 
-        weather_text = (
-            f"{weather_emoji} **{city_name}**\n"
-            f"🌡️ Температура: {temp:+}°C (ощущается как {feels_like:+}°C)\n"
-            f"📝 {description.capitalize()}\n"
-            f"💨 Ветер: {wind} м/с\n"
-            f"💧 Влажность: {humidity}%"
+        return (
+            f"{emoji} **{city_name}**\n"
+            f"🌡️ {temp:+}°C (ощущается {feels:+}°C)\n"
+            f"📝 {desc}\n"
+            f"💨 {wind} м/с  💧 {humidity}%"
         )
-
-        return weather_text
-
-    except requests.exceptions.Timeout:
-        logger.error(f"Таймаут запроса погоды для города {city}")
-        return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка запроса погоды для города {city}: {e}")
-        return None
-    except KeyError as e:
-        logger.error(f"Ошибка парсинга данных погоды для города {city}: {e}")
+    except Exception as e:
+        logger.error(f"Ошибка погоды для {city}: {e}")
         return None
 
 
-def _get_weather_emoji(description: str) -> str:
-    """Подобрать эмодзи по описанию погоды"""
-    description = description.lower()
-
-    if "ясно" in description or "clear" in description:
+def _emoji(desc: str) -> str:
+    d = desc.lower()
+    if "ясно" in d or "clear" in d:
         return "☀️"
-    elif "облачн" in description or "cloud" in description:
-        if "перемен" in description or "partial" in description:
-            return "⛅"
-        return "☁️"
-    elif "дожд" in description or "rain" in description or "drizzle" in description:
+    if "облачн" in d or "cloud" in d:
+        return "⛅" if "перемен" in d or "partial" in d else "☁️"
+    if "дожд" in d or "rain" in d or "drizzle" in d:
         return "🌧️"
-    elif "снег" in description or "snow" in description:
+    if "снег" in d or "snow" in d:
         return "❄️"
-    elif "гроз" in description or "thunder" in description:
+    if "гроз" in d or "thunder" in d:
         return "⛈️"
-    elif "туман" in description or "fog" in description or "haze" in description:
+    if "туман" in d or "fog" in d or "haze" in d:
         return "🌫️"
-    else:
-        return "🌤️"
+    return "🌤️"

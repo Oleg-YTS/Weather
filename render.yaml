@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: weather-telegram-bot
+    name: weather-bot
     env: python
     region: frankfurt
     plan: free
@@ -22,7 +22,5 @@ services:
         sync: false
       - key: WEBHOOK_SECRET
         generateValue: true
-      - key: WEBHOOK_PATH
-        value: /webhook
       - key: TIMEZONE
         value: Europe/Moscow
