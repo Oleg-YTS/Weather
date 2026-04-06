@@ -28,11 +28,13 @@ async def on_startup(bot: Bot):
     if external_url:
         path = os.getenv("WEBHOOK_PATH", "/webhook")
         secret = os.getenv("WEBHOOK_SECRET", "")
+        # Telegram разрешает только A-Z a-z 0-9 - _
+        secret = secret if secret and all(c.isalnum() or c in "-_" for c in secret) else None
         await bot.set_webhook(
             url=f"{external_url}{path}",
-            secret_token=secret if secret else None,
+            secret_token=secret,
         )
-        logger.info(f"Вебхук: {external_url}{path}")
+        logger.info(f"Вебхук: {external_url}{path}" + (f" (секрет: ✓)" if secret else ""))
 
 
 async def on_shutdown(bot: Bot):
