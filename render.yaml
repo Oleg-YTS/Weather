@@ -21,6 +21,6 @@ services:
       - key: DEEPSEEK_API_KEY
         sync: false
       - key: WEBHOOK_SECRET
-        generateValue: true
+        value: weather-bot-webhook-secret-2024
       - key: TIMEZONE
         value: Europe/Moscow
