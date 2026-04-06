@@ -99,8 +99,8 @@ async def main_polling():
         logger.info("Бот остановлен")
 
 
-async def main_webhook():
-    """Запуск в режиме webhook (Render.com)"""
+def main_webhook():
+    """Запуск в режиме webhook (Render.com) — синхронная функция"""
     from aiohttp import web
     from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
@@ -116,21 +116,27 @@ async def main_webhook():
 
     bot = Bot(token=bot_token)
 
-    try:
-        me = await bot.get_me()
-        logger.info(f"Бот: @{me.username}")
-    except Exception as e:
-        logger.error(f"Не удалось подключиться: {e}")
-        return
+    # Предварительная настройка бота (в своём event loop)
+    async def _setup_bot():
+        try:
+            me = await bot.get_me()
+            logger.info(f"Бот: @{me.username}")
+        except Exception as e:
+            logger.error(f"Не удалось подключиться: {e}")
+            raise
+
+        await bot.set_my_commands([
+            types.BotCommand(command="start", description="Запустить бота"),
+            types.BotCommand(command="test", description="Тестовая рассылка"),
+            types.BotCommand(command="status", description="Статус планировщика"),
+        ])
+
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(_setup_bot())
+    loop.close()
 
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
-
-    await bot.set_my_commands([
-        types.BotCommand(command="start", description="Запустить бота"),
-        types.BotCommand(command="test", description="Тестовая рассылка"),
-        types.BotCommand(command="status", description="Статус планировщика"),
-    ])
 
     dp.include_router(setup_router)
     dp.include_router(persona_router)
@@ -143,6 +149,7 @@ async def main_webhook():
 
     scheduler = create_scheduler(bot)
     set_scheduler(scheduler)
+    scheduler.start()
 
     app = web.Application()
 
@@ -163,16 +170,15 @@ async def main_webhook():
     setup_application(app, dp, bot=bot)
 
     PORT = int(os.getenv("PORT", 10000))
-    scheduler.start()
+    logger.info(f"Бот запущен в режиме WEBHOOK на порту {PORT}!")
 
     try:
-        logger.info(f"Бот запущен в режиме WEBHOOK на порту {PORT}!")
         web.run_app(app, host="0.0.0.0", port=PORT)
     except Exception as e:
         logger.error(f"Ошибка: {e}")
     finally:
         scheduler.shutdown()
-        await bot.session.close()
+        asyncio.run(bot.session.close())
         logger.info("Бот остановлен")
 
 
@@ -181,7 +187,7 @@ if __name__ == "__main__":
     use_webhook = os.getenv("RENDER", "").lower() == "true"
 
     if use_webhook:
-        asyncio.run(main_webhook())
+        main_webhook()  # Синхронный, сам управляет event loop
     else:
         try:
             asyncio.run(main_polling())

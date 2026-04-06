@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(del *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(timeout *)"
     ]
   },
   "$version": 3
