@@ -84,10 +84,14 @@ async def cb_set_persona(callback: CallbackQuery):
         await callback.message.answer(f"✅ Персона: {persona['name']}")
 
     # Донат после смены персоны
-    await callback.message.answer(
-        get_donate_message(persona_id),
-        reply_markup=create_donate_keyboard(persona_id),
-    )
+    try:
+        await callback.message.answer(
+            get_donate_message(persona_id),
+            reply_markup=create_donate_keyboard(persona_id),
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки доната в персоне: {e}")
+
     await callback.answer(f"✅ {persona['name']}!", show_alert=True)
 
 

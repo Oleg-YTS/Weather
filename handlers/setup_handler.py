@@ -189,11 +189,14 @@ async def _show_menu(message, user):
     await message.answer("\n\n".join(parts), reply_markup=kb, parse_mode="Markdown")
 
     # Донат под гороскопом
-    persona = user.horoscope_persona
-    await message.answer(
-        get_donate_message(persona),
-        reply_markup=create_donate_keyboard(persona),
-    )
+    try:
+        persona = user.horoscope_persona
+        await message.answer(
+            get_donate_message(persona),
+            reply_markup=create_donate_keyboard(persona),
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки доната в меню: {e}")
 
 
 def _city_keyboard(user) -> InlineKeyboardMarkup:
