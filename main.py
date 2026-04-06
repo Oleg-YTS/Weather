@@ -147,11 +147,25 @@ def main_webhook():
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
+    # Создаём планировщик (запустится внутри aiohttp event loop)
     scheduler = create_scheduler(bot)
     set_scheduler(scheduler)
-    scheduler.start()
 
     app = web.Application()
+
+    async def on_app_startup(app):
+        """Запуск планировщика при старте aiohttp приложения"""
+        scheduler.start()
+        logger.info("Планировщик запущен")
+
+    async def on_app_shutdown(app):
+        """Остановка планировщика при завершении"""
+        scheduler.shutdown()
+        await bot.session.close()
+        logger.info("Бот остановлен")
+
+    app.on_startup.append(on_app_startup)
+    app.on_shutdown.append(on_app_shutdown)
 
     # Health check для Render
     async def health_check(request):
@@ -176,10 +190,6 @@ def main_webhook():
         web.run_app(app, host="0.0.0.0", port=PORT)
     except Exception as e:
         logger.error(f"Ошибка: {e}")
-    finally:
-        scheduler.shutdown()
-        asyncio.run(bot.session.close())
-        logger.info("Бот остановлен")
 
 
 if __name__ == "__main__":
