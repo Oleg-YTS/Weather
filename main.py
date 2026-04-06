@@ -24,17 +24,30 @@ logger = logging.getLogger(__name__)
 
 async def on_startup(bot: Bot):
     """При старте на Render — регистрируем вебхук в Telegram"""
-    external_url = os.getenv("RENDER_EXTERNAL_URL")
-    if external_url:
-        path = os.getenv("WEBHOOK_PATH", "/webhook")
-        secret = os.getenv("WEBHOOK_SECRET", "")
-        # Telegram разрешает только A-Z a-z 0-9 - _
-        secret = secret if secret and all(c.isalnum() or c in "-_" for c in secret) else None
-        await bot.set_webhook(
-            url=f"{external_url}{path}",
-            secret_token=secret,
-        )
-        logger.info(f"Вебхук: {external_url}{path}" + (f" (секрет: ✓)" if secret else ""))
+    external_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "")
+
+    if not external_url and hostname:
+        external_url = f"https://{hostname}"
+
+    logger.info(f"RENDER_EXTERNAL_URL={os.getenv('RENDER_EXTERNAL_URL')}")
+    logger.info(f"RENDER_EXTERNAL_HOSTNAME={hostname}")
+
+    if not external_url:
+        logger.error("RENDER_EXTERNAL_URL не установлен! Вебхук не зарегистрирован!")
+        return
+
+    path = os.getenv("WEBHOOK_PATH", "/webhook")
+    secret = os.getenv("WEBHOOK_SECRET", "")
+    # Telegram разрешает только A-Z a-z 0-9 - _
+    secret = secret if secret and all(c.isalnum() or c in "-_" for c in secret) else None
+
+    url = f"{external_url}{path}"
+    try:
+        await bot.set_webhook(url=url, secret_token=secret)
+        logger.info(f"✅ Вебхук установлен: {url}")
+    except Exception as e:
+        logger.error(f"❌ Ошибка установки вебхука: {e}")
 
 
 async def on_shutdown(bot: Bot):
