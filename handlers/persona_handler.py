@@ -10,6 +10,8 @@ from aiogram.filters import Command
 from services.user_data_service import get_user, update_user
 from services.persona_service import get_persona_list, get_persona
 from services.horoscope_service import get_horoscope
+from services.donate_service import create_donate_keyboard
+from services.persona_service import get_donate_message
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -80,6 +82,12 @@ async def cb_set_persona(callback: CallbackQuery):
         await callback.message.answer(f"🎭 **{persona['name']}**\n\n{h}", parse_mode="Markdown")
     else:
         await callback.message.answer(f"✅ Персона: {persona['name']}")
+
+    # Донат после смены персоны
+    await callback.message.answer(
+        get_donate_message(persona_id),
+        reply_markup=create_donate_keyboard(persona_id),
+    )
     await callback.answer(f"✅ {persona['name']}!", show_alert=True)
 
 

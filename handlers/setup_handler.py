@@ -11,6 +11,8 @@ from services.user_data_service import get_user, create_user, update_user
 from services.horoscope_service import get_zodiac_keyboard
 from services.weather_service import get_weather
 from services.horoscope_service import get_horoscope
+from services.donate_service import create_donate_keyboard
+from services.persona_service import get_donate_message
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +187,13 @@ async def _show_menu(message, user):
         ]
     )
     await message.answer("\n\n".join(parts), reply_markup=kb, parse_mode="Markdown")
+
+    # Донат под гороскопом
+    persona = user.horoscope_persona
+    await message.answer(
+        get_donate_message(persona),
+        reply_markup=create_donate_keyboard(persona),
+    )
 
 
 def _city_keyboard(user) -> InlineKeyboardMarkup:
