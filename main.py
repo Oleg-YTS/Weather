@@ -51,9 +51,8 @@ async def on_startup(bot: Bot):
 
 
 async def on_shutdown(bot: Bot):
-    """При остановке — убираем вебхук"""
-    await bot.delete_webhook()
-    logger.info("Вебхук удалён")
+    """При остановке — НЕ удаляем вебхук (Render перезапускается часто)"""
+    pass
 
 
 def run_polling():
